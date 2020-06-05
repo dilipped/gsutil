@@ -228,6 +228,9 @@ class _NameExpansionIterator(object):
                 bucket_listing_fields=self.bucket_listing_fields,
                 expand_top_level_buckets=True))
         if storage_url.IsCloudUrl() and storage_url.IsBucket():
+          # This is required for cases where you have object at bucket level.
+          # in that case, the names_container flag will be False when this
+          # passes through the post_step2_ter.
           src_names_bucket = True
 
       # Because we actually perform and check object listings here, this will
@@ -237,6 +240,13 @@ class _NameExpansionIterator(object):
       # result.
       if post_step1_iter.IsEmpty():
         if self.continue_on_error:
+          # Refactoring suggestion:
+          # The code below assumes that this iterator will be wrapped inside
+          # the PluralityCheckableIterator, which is not a good pattern
+          # since that makes this iterator dependent on how it is called.
+          # The reaason we do this is to be able to raise the error later
+          # and exit with non-zero exit code. But if we are expecting the system
+          # to skip the error, I think we should exit with 0.
           try:
             raise CommandException(NO_URLS_MATCHED_TARGET % url_str)
           except CommandException as e:
