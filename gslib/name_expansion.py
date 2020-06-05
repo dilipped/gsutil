@@ -230,25 +230,12 @@ class _NameExpansionIterator(object):
         if storage_url.IsCloudUrl() and storage_url.IsBucket():
           src_names_bucket = True
 
-      # Step 2: Expand bucket subdirs. The output from this
-      # step is an iterator of (names_container, BucketListingRef).
-      # Starting with gs://bucket/abcd this step would expand to:
-      #   iter([(True, abcd/o1.txt), (True, abcd/o2.txt)]).
-      subdir_exp_wildcard = self._flatness_wildcard[self.recursion_requested]
-      if self.recursion_requested:
-        post_step2_iter = _ImplicitBucketSubdirIterator(
-            self, post_step1_iter, subdir_exp_wildcard,
-            self.bucket_listing_fields)
-      else:
-        post_step2_iter = _NonContainerTuplifyIterator(post_step1_iter)
-      post_step2_iter = PluralityCheckableIterator(post_step2_iter)
-
       # Because we actually perform and check object listings here, this will
       # raise if url_args includes a non-existent object.  However,
       # plurality_checkable_iterator will buffer the exception for us, not
       # raising it until the iterator is actually asked to yield the first
       # result.
-      if post_step2_iter.IsEmpty():
+      if post_step1_iter.IsEmpty():
         if self.continue_on_error:
           try:
             raise CommandException(NO_URLS_MATCHED_TARGET % url_str)
@@ -259,12 +246,30 @@ class _NameExpansionIterator(object):
         else:
           raise CommandException(NO_URLS_MATCHED_TARGET % url_str)
 
+      # Step 2: Expand bucket subdirs. The output from this
+      # step is an iterator of (names_container, BucketListingRef).
+      # Starting with gs://bucket/abcd this step would expand to:
+      #   iter([(True, abcd/o1.txt), (True, abcd/o2.txt)]).
+      subdir_exp_wildcard = self._flatness_wildcard[self.recursion_requested]
+      if self.recursion_requested:
+        post_step2_iter = _ImplicitBucketSubdirIterator(
+            self, post_step1_iter, subdir_exp_wildcard,
+            self.bucket_listing_fields)
+      else:
+        # post_step2_iter = _NonContainerTuplifyIterator(post_step1_iter)
+        post_step2_iter = _SkipSUbDirIteratorForNonRecursive(
+            post_step1_iter, self.command_name, self.cmd_supports_recursion,
+            self.logger
+        )
+      post_step2_iter = PluralityCheckableIterator(post_step2_iter)
+
       # Step 3. Omit any directories, buckets, or bucket subdirectories for
       # non-recursive expansions.
-      post_step3_iter = PluralityCheckableIterator(
-          _OmitNonRecursiveIterator(post_step2_iter, self.recursion_requested,
-                                    self.command_name,
-                                    self.cmd_supports_recursion, self.logger))
+      # post_step3_iter = PluralityCheckableIterator(
+      #     _OmitNonRecursiveIterator(post_step2_iter, self.recursion_requested,
+      #                               self.command_name,
+      #                               self.cmd_supports_recursion, self.logger))
+      post_step3_iter = post_step2_iter
 
       src_url_expands_to_multi = post_step3_iter.HasPlurality()
       is_multi_source_request = (self.url_strs.has_plurality or
@@ -277,39 +282,42 @@ class _NameExpansionIterator(object):
       #  [dir/a.txt, dir/b.txt, dir/c/]
       for (names_container, blr) in post_step3_iter:
         src_names_container = src_names_bucket or names_container
+        yield NameExpansionResult(storage_url, is_multi_source_request,
+                                  src_names_container, blr.storage_url,
+                                  blr.root_object)
 
-        if blr.IsObject():
-          yield NameExpansionResult(storage_url, is_multi_source_request,
-                                    src_names_container, blr.storage_url,
-                                    blr.root_object)
-        else:
-          # Use implicit wildcarding to do the enumeration.
-          # At this point we are guaranteed that:
-          # - Recursion has been requested because non-object entries are
-          #   filtered in step 3 otherwise.
-          # - This is a prefix or bucket subdirectory because only
-          #   non-recursive iterations product bucket references.
-          expanded_url = StorageUrlFromString(blr.url_string)
-          if expanded_url.IsFileUrl():
-            # Convert dir to implicit recursive wildcard.
-            url_to_iterate = '%s%s%s' % (blr, os.sep, subdir_exp_wildcard)
-          else:
-            # Convert subdir to implicit recursive wildcard.
-            url_to_iterate = expanded_url.CreatePrefixUrl(
-                wildcard_suffix=subdir_exp_wildcard)
-
-          wc_iter = PluralityCheckableIterator(
-              self.WildcardIterator(url_to_iterate).IterObjects(
-                  bucket_listing_fields=self.bucket_listing_fields))
-          src_url_expands_to_multi = (src_url_expands_to_multi or
-                                      wc_iter.HasPlurality())
-          is_multi_source_request = (self.url_strs.has_plurality or
-                                     src_url_expands_to_multi)
-          # This will be a flattened listing of all underlying objects in the
-          # subdir.
-          for blr in wc_iter:
-            yield NameExpansionResult(storage_url, is_multi_source_request,
-                                      True, blr.storage_url, blr.root_object)
+        # if blr.IsObject():
+        #   yield NameExpansionResult(storage_url, is_multi_source_request,
+        #                             src_names_container, blr.storage_url,
+        #                             blr.root_object)
+        # else:
+        #   # Use implicit wildcarding to do the enumeration.
+        #   # At this point we are guaranteed that:
+        #   # - Recursion has been requested because non-object entries are
+        #   #   filtered in step 3 otherwise.
+        #   # - This is a prefix or bucket subdirectory because only
+        #   #   non-recursive iterations product bucket references.
+        #   expanded_url = StorageUrlFromString(blr.url_string)
+        #   if expanded_url.IsFileUrl():
+        #     # Convert dir to implicit recursive wildcard.
+        #     url_to_iterate = '%s%s%s' % (blr, os.sep, subdir_exp_wildcard)
+        #   else:
+        #     # Convert subdir to implicit recursive wildcard.
+        #     url_to_iterate = expanded_url.CreatePrefixUrl(
+        #         wildcard_suffix=subdir_exp_wildcard)
+        #
+        #   wc_iter = PluralityCheckableIterator(
+        #       self.WildcardIterator(url_to_iterate).IterObjects(
+        #           bucket_listing_fields=self.bucket_listing_fields))
+        #   src_url_expands_to_multi = (src_url_expands_to_multi or
+        #                               wc_iter.HasPlurality())
+        #   is_multi_source_request = (self.url_strs.has_plurality or
+        #                              src_url_expands_to_multi)
+        #   # This will be a flattened listing of all underlying objects in the
+        #   # subdir.
+        #   for blr in wc_iter:
+        #     yield NameExpansionResult(storage_url, is_multi_source_request,
+        #                               True, blr.storage_url, blr.root_object)
 
   def WildcardIterator(self, url_string):
     """Helper to instantiate gslib.WildcardIterator.
@@ -471,6 +479,40 @@ class _NonContainerTuplifyIterator(object):
   def __iter__(self):
     for blr in self.blr_iter:
       yield (False, blr)
+
+class _SkipSUbDirIteratorForNonRecursive(object):
+  """Iterator that skips directory. Only use this for non recursive calls.
+
+  """
+  pass
+
+  def __init__(self, blr_iter, command_name,
+      cmd_supports_recursion, logger):
+    """Instantiates iterator.
+
+    Args:
+      blr_iter: iterator of BucketListingRef.
+    """
+    self.blr_iter = blr_iter
+    self.command_name = command_name
+    self.cmd_supports_recursion = cmd_supports_recursion
+    self.logger = logger
+
+  def __iter__(self):
+    for blr in self.blr_iter:
+      # print(self, blr.url_string)
+      if not blr.IsObject():
+        # At this point we either have a bucket or a prefix,
+        # so if recursion is not requested, we're going to omit it.
+        expanded_url = StorageUrlFromString(blr.url_string)
+        desc = expanded_url.type_name
+        if self.cmd_supports_recursion:
+          self.logger.info('Omitting %s "%s". (Did you mean to do %s -r?)',
+                           desc, blr.url_string, self.command_name)
+        else:
+          self.logger.info('Omitting %s "%s".', desc, blr.url_string)
+      else:
+        yield (False, blr)
 
 
 class _OmitNonRecursiveIterator(object):

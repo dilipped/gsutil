@@ -295,7 +295,7 @@ class LsCommand(Command):
       min_args=0,
       max_args=NO_MAX,
       supported_sub_args='aebdlLhp:rR',
-      file_url_ok=False,
+      file_url_ok=True,
       provider_url_ok=True,
       urls_start_arg=0,
       gs_api_support=[
@@ -525,6 +525,25 @@ class LsCommand(Command):
 
     print_bucket_header = MaybePrintBucketHeader
 
+    # from gslib.name_expansion import NameExpansionIterator
+    # import sys
+    # name_expansion_iterator = NameExpansionIterator(
+    #     self.command_name,
+    #     self.debug,
+    #     self.logger,
+    #     self.gsutil_api,
+    #     self.args,
+    #     self.recursion_requested,
+    #     project_id=self.project_id,
+    #     all_versions=self.all_versions,
+    #     ignore_symlinks=self.exclude_symlinks,
+    #     continue_on_error=False,
+    #     bucket_listing_fields=['id']
+    # )
+    # for blr in name_expansion_iterator:
+    #   print(blr)
+    # sys.exit(0)
+
     for url_str in self.args:
       storage_url = StorageUrlFromString(url_str)
       if storage_url.IsFileUrl():
@@ -579,6 +598,7 @@ class LsCommand(Command):
         if not ContainsWildcard(url_str) and not total_buckets:
           got_bucket_nomatch_errors = True
       else:
+        # print('Is a bucket, object or subdir')
         # URL names a bucket, object, or object subdir ->
         # list matching object(s) / subdirs.
         def _PrintPrefixLong(blr):

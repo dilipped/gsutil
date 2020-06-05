@@ -106,6 +106,10 @@ class StorageUrl(object):
     raise NotImplementedError('url_string not overridden')
 
   @property
+  def type_name(self):
+    raise NotImplementedError('type_name not overridden')
+
+  @property
   def versionless_url_string(self):
     raise NotImplementedError('versionless_url_string not overridden')
 
@@ -167,11 +171,19 @@ class _FileUrl(StorageUrl):
             os.path.isdir(self.object_name))
 
   def CreatePrefixUrl(self, wildcard_suffix=None):
-    return self.url_string
+    # return self.url_string
+    prefix = StripOneSlash(self.url_string)
+    if wildcard_suffix:
+      prefix = '%s/%s' % (prefix, wildcard_suffix)
+    return prefix
 
   @property
   def url_string(self):
     return '%s://%s' % (self.scheme, self.object_name)
+
+  @property
+  def type_name(self):
+    return 'directory' if self.IsDirectory() else 'file'
 
   @property
   def versionless_url_string(self):
@@ -264,6 +276,10 @@ class _CloudUrl(StorageUrl):
   @property
   def bucket_url_string(self):
     return '%s://%s/' % (self.scheme, self.bucket_name)
+
+  @property
+  def type_name(self):
+    return 'bucket' if self.IsBucket() else 'object'
 
   @property
   def url_string(self):
