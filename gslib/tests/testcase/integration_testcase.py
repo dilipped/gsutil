@@ -372,7 +372,7 @@ class GsUtilIntegrationTestCase(base.GsUtilTestCase):
     def _CheckBucket():
       command = ['ls', '-a'] if versioned else ['ls']
       b_uri = [suri(bucket_uri) + '/**'] if num_objects else [suri(bucket_uri)]
-      listing = self.RunGsUtil(command + b_uri, return_stdout=True).split('\n')
+      listing = self.RunGcloud(command + b_uri, return_stdout=True).split('\n')
       # num_objects + one trailing newline.
       self.assertEquals(len(listing), num_objects + 1)
       return listing
@@ -926,6 +926,121 @@ class GsUtilIntegrationTestCase(base.GsUtilTestCase):
     self.assertEqual(expected_present, attr_present)
     self.assertEqual(expected_value, value)
 
+  def RunGcloud(self,
+                cmd,
+                return_status=False,
+                return_stdout=False,
+                return_stderr=False,
+                expected_status=0,
+                stdin=None,
+                env_vars=None):
+    """Runs gcloud alpha storage command.
+
+    Args:
+      cmd: The command to run, as a list, e.g. ['cp', 'foo', 'bar']
+      return_status: If True, the exit status code is returned.
+      return_stdout: If True, the standard output of the command is returned.
+      return_stderr: If True, the standard error of the command is returned.
+      expected_status: The expected return code. If not specified, defaults to
+                       0. If the return code is a different value, an exception
+                       is raised.
+      stdin: A string of data to pipe to the process as standard input.
+      env_vars: A dictionary of variables to extend the subprocess's os.environ
+                with.
+
+    Returns:
+      If multiple return_* values were specified, this method returns a tuple
+      containing the desired return values specified by the return_* arguments
+      (in the order those parameters are specified in the method definition).
+      If only one return_* value was specified, that value is returned directly
+      rather than being returned within a 1-tuple.
+    """
+    # TODO Figure out a way to get gcloud storage to output useful stacktraces,
+    # like --testexceptiontraces in RunGsUtil.
+    cmd = [
+        'gcloud', 'alpha', 'storage',
+        '--project=' + PopulateProjectId()
+    ] + cmd
+    if stdin is not None:
+      if six.PY3:
+        if not isinstance(stdin, bytes):
+          stdin = stdin.encode(UTF8)
+      else:
+        stdin = stdin.encode(UTF8)
+    # checking to see if test was invoked from a par file (bundled archive)
+    # if not, add python executable path to ensure correct version of python
+    # is used for testing
+    cmd = [str(sys.executable)] + cmd if not InvokedFromParFile() else cmd
+    env = os.environ.copy()
+    if env_vars:
+      env.update(env_vars)
+    # Ensuring correct text types
+    envstr = dict()
+    for k, v in six.iteritems(env):
+      envstr[six.ensure_str(k)] = six.ensure_str(v)
+    cmd = [six.ensure_str(part) for part in cmd]
+
+    # executing command - the setsid allows us to kill the process group below
+    # if the execution times out.  With python 2.7, there's no other way to
+    # stop the execution (p.kill() doesn't work).  Since setsid is not available
+    # on Windows, we just deal with the occasional timeouts on Windows.
+    preexec_fn = os.setsid if hasattr(os, 'setsid') else None
+    p = subprocess.Popen(cmd,
+                         stdout=subprocess.PIPE,
+                         stderr=subprocess.PIPE,
+                         stdin=subprocess.PIPE,
+                         env=envstr,
+                         preexec_fn=preexec_fn,
+                         shell=True)
+    comm_kwargs = {'input': stdin}
+
+    def Kill():
+      os.killpg(os.getpgid(p.pid), signal.SIGKILL)
+
+    if six.PY3:
+      # TODO(b/135936279): Make this number configurable in .boto
+      comm_kwargs['timeout'] = 180
+    else:
+      timer = threading.Timer(180, Kill)
+      timer.start()
+
+    c_out = p.communicate(**comm_kwargs)
+
+    if not six.PY3:
+      timer.cancel()
+
+    try:
+      c_out = [six.ensure_text(output) for output in c_out]
+    except UnicodeDecodeError:
+      c_out = [
+          six.ensure_text(output, locale.getpreferredencoding(False))
+          for output in c_out
+      ]
+    stdout = c_out[0].replace(os.linesep, '\n')
+    stderr = c_out[1].replace(os.linesep, '\n')
+    status = p.returncode
+
+    if expected_status is not None:
+      cmd = map(six.ensure_text, cmd)
+      self.assertEqual(
+          int(status),
+          int(expected_status),
+          msg='Expected status {}, got {}.\nCommand:\n{}\n\nstderr:\n{}'.format(
+              expected_status, status, ' '.join(cmd), stderr))
+
+    toreturn = []
+    if return_status:
+      toreturn.append(status)
+    if return_stdout:
+      toreturn.append(stdout)
+    if return_stderr:
+      toreturn.append(stderr)
+
+    if len(toreturn) == 1:
+      return toreturn[0]
+    elif toreturn:
+      return tuple(toreturn)
+
   def RunGsUtil(self,
                 cmd,
                 return_status=False,
@@ -1222,7 +1337,7 @@ class GsUtilIntegrationTestCase(base.GsUtilTestCase):
 
   def FlatListBucket(self, bucket_url_string):
     """Perform a flat listing over bucket_url_string."""
-    return self.RunGsUtil(['ls', suri(bucket_url_string, '**')],
+    return self.RunGcloud(['ls', suri(bucket_url_string, '**')],
                           return_stdout=True)
 
   def StorageUriCloneReplaceKey(self, storage_uri, key):

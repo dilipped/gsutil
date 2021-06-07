@@ -189,7 +189,7 @@ class TestLs(testcase.GsUtilIntegrationTestCase):
     # Use @Retry as hedge against bucket listing eventual consistency.
     @Retry(AssertionError, tries=3, timeout_secs=1)
     def _Check1():
-      stdout = self.RunGsUtil(['ls', '-b', suri(bucket_uri)],
+      stdout = self.RunGcloud(['ls', '-b', suri(bucket_uri)],
                               return_stdout=True)
       self.assertEqual('%s/\n' % suri(bucket_uri), stdout)
 
@@ -198,7 +198,7 @@ class TestLs(testcase.GsUtilIntegrationTestCase):
   def test_bucket_with_Lb(self):
     """Tests ls -Lb."""
     bucket_uri = self.CreateBucket()
-    stdout = self.RunGsUtil(['ls', '-Lb', suri(bucket_uri)], return_stdout=True)
+    stdout = self.RunGcloud(['ls', '-Lb', suri(bucket_uri)], return_stdout=True)
     # Check that the bucket URI is displayed.
     self.assertIn(suri(bucket_uri), stdout)
     # Check that we don't see output corresponding to listing objects rather
@@ -209,7 +209,7 @@ class TestLs(testcase.GsUtilIntegrationTestCase):
     # greater than the creation time.
     self.RunGsUtil(['versioning', 'set', 'on', suri(bucket_uri)])
     self.RunGsUtil(['versioning', 'set', 'off', suri(bucket_uri)])
-    stdout = self.RunGsUtil(['ls', '-Lb', suri(bucket_uri)], return_stdout=True)
+    stdout = self.RunGcloud(['ls', '-Lb', suri(bucket_uri)], return_stdout=True)
     find_metageneration_re = re.compile(
         r'^\s*Metageneration:\s+(?P<metageneration_val>.+)$', re.MULTILINE)
     find_time_created_re = re.compile(
@@ -242,7 +242,7 @@ class TestLs(testcase.GsUtilIntegrationTestCase):
     if self.test_api == ApiSelector.JSON:
       bucket_uri = self.CreateBucket(bucket_policy_only=True,
                                      prefer_json_api=True)
-      stdout = self.RunGsUtil(['ls', '-Lb', suri(bucket_uri)],
+      stdout = self.RunGcloud(['ls', '-Lb', suri(bucket_uri)],
                               return_stdout=True)
       self._AssertBucketPolicyOnly(True, stdout)
 
@@ -259,7 +259,7 @@ class TestLs(testcase.GsUtilIntegrationTestCase):
     # Use @Retry as hedge against bucket listing eventual consistency.
     @Retry(AssertionError, tries=3, timeout_secs=1)
     def _Check1():
-      stdout = self.RunGsUtil(['ls', '-lb', suri(bucket_uri)],
+      stdout = self.RunGcloud(['ls', '-l' '-b', suri(bucket_uri)],
                               return_stdout=True)
       self.assertIn(suri(bucket_uri), stdout)
       self.assertNotIn('TOTAL:', stdout)
@@ -288,7 +288,7 @@ class TestLs(testcase.GsUtilIntegrationTestCase):
     # Use @Retry as hedge against bucket listing eventual consistency.
     @Retry(AssertionError, tries=3, timeout_secs=1)
     def _Check1():
-      stdout = self.RunGsUtil(['ls', '-b', wildcard], return_stdout=True)
+      stdout = self.RunGcloud(['ls', '-b', wildcard], return_stdout=True)
       expected = set([suri(bucket1_uri) + '/', suri(bucket2_uri) + '/'])
       actual = set(stdout.split())
       self.assertEqual(expected, actual)
@@ -297,19 +297,19 @@ class TestLs(testcase.GsUtilIntegrationTestCase):
 
   def test_nonexistent_bucket_with_ls(self):
     """Tests a bucket that is known not to exist."""
-    stderr = self.RunGsUtil(
-        ['ls', '-lb', 'gs://%s' % self.nonexistent_bucket_name],
+    stderr = self.RunGcloud(
+        ['ls', '-l', '-b', 'gs://%s' % self.nonexistent_bucket_name],
         return_stderr=True,
         expected_status=1)
     self.assertIn('404', stderr)
 
-    stderr = self.RunGsUtil(
-        ['ls', '-Lb', 'gs://%s' % self.nonexistent_bucket_name],
+    stderr = self.RunGcloud(
+        ['ls', '-L' '-b', 'gs://%s' % self.nonexistent_bucket_name],
         return_stderr=True,
         expected_status=1)
     self.assertIn('404', stderr)
 
-    stderr = self.RunGsUtil(
+    stderr = self.RunGcloud(
         ['ls', '-b', 'gs://%s' % self.nonexistent_bucket_name],
         return_stderr=True,
         expected_status=1)
@@ -318,7 +318,7 @@ class TestLs(testcase.GsUtilIntegrationTestCase):
   def test_list_missing_object(self):
     """Tests listing a non-existent object."""
     bucket_uri = self.CreateBucket()
-    stderr = self.RunGsUtil(['ls', suri(bucket_uri, 'missing')],
+    stderr = self.RunGcloud(['ls', suri(bucket_uri, 'missing')],
                             return_stderr=True,
                             expected_status=1)
     self.assertIn('matched no objects', stderr)
@@ -329,7 +329,7 @@ class TestLs(testcase.GsUtilIntegrationTestCase):
     # Use @Retry as hedge against bucket listing eventual consistency.
     @Retry(AssertionError, tries=3, timeout_secs=1)
     def _Check1():
-      stdout = self.RunGsUtil(['ls', suri(bucket_uri)], return_stdout=True)
+      stdout = self.RunGcloud(['ls', suri(bucket_uri)], return_stdout=True)
       self.assertEqual('%s\n' % obj_uri, stdout)
 
     _Check1()
@@ -343,7 +343,7 @@ class TestLs(testcase.GsUtilIntegrationTestCase):
 
     @Retry(AssertionError, tries=3, timeout_secs=1)
     def _Check1(uri):
-      stdout = self.RunGsUtil(['ls', uri], return_stdout=True)
+      stdout = self.RunGcloud(['ls', uri], return_stdout=True)
       self.assertEqual('%s\n' % obj_uri, stdout)
 
     with SetBotoConfigForTest([('s3', 'host', client_host)]):
@@ -372,7 +372,7 @@ class TestLs(testcase.GsUtilIntegrationTestCase):
     # Use @Retry as hedge against bucket listing eventual consistency.
     @Retry(AssertionError, tries=3, timeout_secs=1)
     def _Check1():
-      stdout = self.RunGsUtil(
+      stdout = self.RunGcloud(
           ['-o', option, 'ls', suri(bucket_uri)], return_stdout=True)
       self.assertEqual('%s\n' % obj_uri, stdout)
       if os.name == 'posix':
@@ -386,7 +386,7 @@ class TestLs(testcase.GsUtilIntegrationTestCase):
   def test_one_object_with_l(self):
     """Tests listing one object with -l."""
     obj_uri = self.CreateObject(contents=b'foo')
-    stdout = self.RunGsUtil(['ls', '-l', suri(obj_uri)], return_stdout=True)
+    stdout = self.RunGcloud(['ls', '-l', suri(obj_uri)], return_stdout=True)
     output_items = stdout.split()
     self.assertTrue(output_items[0].isdigit())
     # Throws exception if time string is not formatted correctly.
@@ -404,7 +404,7 @@ class TestLs(testcase.GsUtilIntegrationTestCase):
         r'^\s*Creation time:\s+(?P<time_created_val>.+)$', re.MULTILINE)
     find_time_updated_re = re.compile(
         r'^\s*Update time:\s+(?P<time_updated_val>.+)$', re.MULTILINE)
-    stdout = self.RunGsUtil(['ls', '-L', suri(obj_uri)], return_stdout=True)
+    stdout = self.RunGcloud(['ls', '-L', suri(obj_uri)], return_stdout=True)
 
     time_created_match = re.search(find_time_created_re, stdout)
     time_updated_match = re.search(find_time_updated_re, stdout)
@@ -430,10 +430,10 @@ class TestLs(testcase.GsUtilIntegrationTestCase):
     # Use @Retry as hedge against bucket listing eventual consistency.
     @Retry(AssertionError, tries=3, timeout_secs=1)
     def _Check1():
-      stdout = self.RunGsUtil(['ls', '%s/dir' % suri(bucket_uri)],
+      stdout = self.RunGcloud(['ls', '%s/dir' % suri(bucket_uri)],
                               return_stdout=True)
       self.assertEqual('%s\n' % suri(k2_uri), stdout)
-      stdout = self.RunGsUtil(['ls', suri(k1_uri)], return_stdout=True)
+      stdout = self.RunGcloud(['ls', suri(k1_uri)], return_stdout=True)
       self.assertEqual('%s\n' % suri(k1_uri), stdout)
 
     _Check1()
@@ -456,11 +456,11 @@ class TestLs(testcase.GsUtilIntegrationTestCase):
     # Use @Retry as hedge against bucket listing eventual consistency.
     @Retry(AssertionError, tries=3, timeout_secs=1)
     def _Check1():
-      stdout = self.RunGsUtil(
+      stdout = self.RunGcloud(
           ['ls', '-d', '%s/dir*' % suri(bucket_uri)], return_stdout=True)
       self.assertEqual(
           '%s/dir/\n%s/dir2/\n' % (suri(bucket_uri), suri(bucket_uri)), stdout)
-      stdout = self.RunGsUtil(['ls', suri(k1_uri)], return_stdout=True)
+      stdout = self.RunGcloud(['ls', suri(k1_uri)], return_stdout=True)
       self.assertEqual('%s\n' % suri(k1_uri), stdout)
 
     _Check1()
@@ -481,10 +481,10 @@ class TestLs(testcase.GsUtilIntegrationTestCase):
     # Use @Retry as hedge against bucket listing eventual consistency.
     @Retry(AssertionError, tries=3, timeout_secs=1)
     def _Check2():
-      stdout = self.RunGsUtil(['ls', '-a', suri(bucket2_uri)],
+      stdout = self.RunGcloud(['ls', '-a', suri(bucket2_uri)],
                               return_stdout=True)
       self.assertNumLines(stdout, 3)
-      stdout = self.RunGsUtil(['ls', '-la', suri(bucket2_uri)],
+      stdout = self.RunGcloud(['ls', '-la', suri(bucket2_uri)],
                               return_stdout=True)
       self.assertIn(
           '%s#' %
@@ -504,7 +504,7 @@ class TestLs(testcase.GsUtilIntegrationTestCase):
     # Use @Retry as hedge against bucket listing eventual consistency.
     @Retry(AssertionError, tries=3, timeout_secs=1)
     def _Check1():
-      stdout = self.RunGsUtil(['ls', '-l', suri(bucket_uri)],
+      stdout = self.RunGcloud(['ls', '-l', suri(bucket_uri)],
                               return_stdout=True)
       if self.test_api == ApiSelector.XML:
         self.assertNotIn(etag, stdout)
@@ -514,7 +514,7 @@ class TestLs(testcase.GsUtilIntegrationTestCase):
     _Check1()
 
     def _Check2():
-      stdout = self.RunGsUtil(['ls', '-le', suri(bucket_uri)],
+      stdout = self.RunGcloud(['ls', '-l' '-e', suri(bucket_uri)],
                               return_stdout=True)
       if self.test_api == ApiSelector.XML:
         self.assertIn(etag, stdout)
@@ -524,7 +524,7 @@ class TestLs(testcase.GsUtilIntegrationTestCase):
     _Check2()
 
     def _Check3():
-      stdout = self.RunGsUtil(['ls', '-ale', suri(bucket_uri)],
+      stdout = self.RunGcloud(['ls', '-a', '-l', '-e', suri(bucket_uri)],
                               return_stdout=True)
       if self.test_api == ApiSelector.XML:
         self.assertIn(etag, stdout)
@@ -538,13 +538,13 @@ class TestLs(testcase.GsUtilIntegrationTestCase):
     bucket_uri = self.CreateBucket()
     bucket_suri = suri(bucket_uri)
 
-    stdout = self.RunGsUtil(['ls', '-Lb', bucket_suri], return_stdout=True)
+    stdout = self.RunGcloud(['ls', '-L', '-b', bucket_suri], return_stdout=True)
     # No labels are present by default.
     self.assertRegex(stdout, r'Labels:\s+None')
 
     # Add a label and check that it shows up.
-    self.RunGsUtil(['label', 'ch', '-l', 'labelkey:labelvalue', bucket_suri])
-    stdout = self.RunGsUtil(['ls', '-Lb', bucket_suri], return_stdout=True)
+    self.RunGcloud(['label', 'ch', '-l', 'labelkey:labelvalue', bucket_suri])
+    stdout = self.RunGcloud(['ls', '-L', '-b', bucket_suri], return_stdout=True)
     label_regex = re.compile(r'Labels:\s+\{\s+"labelkey":\s+"labelvalue"\s+\}',
                              re.MULTILINE)
     self.assertRegex(stdout, label_regex)
@@ -556,11 +556,11 @@ class TestLs(testcase.GsUtilIntegrationTestCase):
     bucket_suri = suri(bucket_uri)
 
     # No location constraint should be shown for `-lb`
-    stdout = self.RunGsUtil(['ls', '-lb', bucket_suri], return_stdout=True)
+    stdout = self.RunGcloud(['ls', '-l', '-b', bucket_suri], return_stdout=True)
     self.assertNotIn('Location constraint:', stdout)
 
     # Default location constraint is US
-    stdout = self.RunGsUtil(['ls', '-Lb', bucket_suri], return_stdout=True)
+    stdout = self.RunGcloud(['ls', '-L', '-b', bucket_suri], return_stdout=True)
     # Default location may vary between test environments; test that some
     # non-whitespace character is present after the whitespace:
     self.assertRegex(stdout, r'Location constraint:\s+\S')
@@ -576,12 +576,12 @@ class TestLs(testcase.GsUtilIntegrationTestCase):
     bucket_suri = suri(bucket_uri)
 
     # No location type should be shown for `-lb`
-    stdout = self.RunGsUtil(['ls', '-lb', bucket_suri], return_stdout=True)
+    stdout = self.RunGcloud(['ls', '-l', '-b', bucket_suri], return_stdout=True)
     self.assertNotIn('Location type:', stdout)
 
     # Default location type may vary between test environments; test that some
     # non-whitespace character is present after the whitespace:
-    stdout = self.RunGsUtil(['ls', '-Lb', bucket_suri], return_stdout=True)
+    stdout = self.RunGcloud(['ls', '-L', '-b', bucket_suri], return_stdout=True)
     self.assertRegex(stdout, r'Location type:\s+\S')
 
   @SkipForS3('S3 bucket configuration values are not supported via ls.')
@@ -591,21 +591,21 @@ class TestLs(testcase.GsUtilIntegrationTestCase):
     bucket_suri = suri(bucket_uri)
 
     # No logging info
-    stdout = self.RunGsUtil(['ls', '-lb', bucket_suri], return_stdout=True)
+    stdout = self.RunGcloud(['ls', '-l', '-b', bucket_suri], return_stdout=True)
     self.assertNotIn('Logging configuration', stdout)
 
     # Logging configuration is absent by default
-    stdout = self.RunGsUtil(['ls', '-Lb', bucket_suri], return_stdout=True)
+    stdout = self.RunGcloud(['ls', '-L', '-b', bucket_suri], return_stdout=True)
     self.assertIn('Logging configuration:\t\tNone', stdout)
 
     # Enable and check
     self.RunGsUtil(['logging', 'set', 'on', '-b', bucket_suri, bucket_suri])
-    stdout = self.RunGsUtil(['ls', '-Lb', bucket_suri], return_stdout=True)
+    stdout = self.RunGcloud(['ls', '-L', '-b', bucket_suri], return_stdout=True)
     self.assertIn('Logging configuration:\t\tPresent', stdout)
 
     # Disable and check
     self.RunGsUtil(['logging', 'set', 'off', bucket_suri])
-    stdout = self.RunGsUtil(['ls', '-Lb', bucket_suri], return_stdout=True)
+    stdout = self.RunGcloud(['ls', '-L', '-b', bucket_suri], return_stdout=True)
     self.assertIn('Logging configuration:\t\tNone', stdout)
 
   @SkipForS3('S3 bucket configuration values are not supported via ls.')
@@ -615,21 +615,21 @@ class TestLs(testcase.GsUtilIntegrationTestCase):
     bucket_suri = suri(bucket_uri)
 
     # No website configuration
-    stdout = self.RunGsUtil(['ls', '-lb', bucket_suri], return_stdout=True)
+    stdout = self.RunGcloud(['ls', '-l', '-b', bucket_suri], return_stdout=True)
     self.assertNotIn('Website configuration', stdout)
 
     # Website configuration is absent by default
-    stdout = self.RunGsUtil(['ls', '-Lb', bucket_suri], return_stdout=True)
+    stdout = self.RunGcloud(['ls', '-L', '-b', bucket_suri], return_stdout=True)
     self.assertIn('Website configuration:\t\tNone', stdout)
 
     # Initialize and check
     self.RunGsUtil(['web', 'set', '-m', 'google.com', bucket_suri])
-    stdout = self.RunGsUtil(['ls', '-Lb', bucket_suri], return_stdout=True)
+    stdout = self.RunGcloud(['ls', '-L', '-b', bucket_suri], return_stdout=True)
     self.assertIn('Website configuration:\t\tPresent', stdout)
 
     # Clear and check
     self.RunGsUtil(['web', 'set', bucket_suri])
-    stdout = self.RunGsUtil(['ls', '-Lb', bucket_suri], return_stdout=True)
+    stdout = self.RunGcloud(['ls', '-L', '-b', bucket_suri], return_stdout=True)
     self.assertIn('Website configuration:\t\tNone', stdout)
 
   @SkipForS3('S3 bucket configuration values are not supported via ls.')
@@ -640,21 +640,21 @@ class TestLs(testcase.GsUtilIntegrationTestCase):
     bucket_suri = suri(bucket_uri)
 
     # No requester pays configuration
-    stdout = self.RunGsUtil(['ls', '-lb', bucket_suri], return_stdout=True)
+    stdout = self.RunGcloud(['ls', '-l', '-b', bucket_suri], return_stdout=True)
     self.assertNotIn('Requester Pays enabled', stdout)
 
     # Requester Pays configuration is absent by default
-    stdout = self.RunGsUtil(['ls', '-Lb', bucket_suri], return_stdout=True)
+    stdout = self.RunGcloud(['ls', '-L', '-b', bucket_suri], return_stdout=True)
     self.assertIn('Requester Pays enabled:\t\tNone', stdout)
 
     # Initialize and check
     self.RunGsUtil(['requesterpays', 'set', 'on', bucket_suri])
-    stdout = self.RunGsUtil(['ls', '-Lb', bucket_suri], return_stdout=True)
+    stdout = self.RunGcloud(['ls', '-L', '-b', bucket_suri], return_stdout=True)
     self.assertIn('Requester Pays enabled:\t\tTrue', stdout)
 
     # Clear and check
     self.RunGsUtil(['requesterpays', 'set', 'off', bucket_suri])
-    stdout = self.RunGsUtil(['ls', '-Lb', bucket_suri], return_stdout=True)
+    stdout = self.RunGcloud(['ls', '-L', '-b', bucket_suri], return_stdout=True)
     self.assertIn('Requester Pays enabled:\t\tFalse', stdout)
 
   def test_list_sizes(self):
@@ -665,7 +665,7 @@ class TestLs(testcase.GsUtilIntegrationTestCase):
     # Use @Retry as hedge against bucket listing eventual consistency.
     @Retry(AssertionError, tries=3, timeout_secs=1)
     def _Check1():
-      stdout = self.RunGsUtil(['ls', '-l', suri(bucket_uri)],
+      stdout = self.RunGcloud(['ls', '-l', suri(bucket_uri)],
                               return_stdout=True)
       self.assertIn('2048', stdout)
 
@@ -674,7 +674,7 @@ class TestLs(testcase.GsUtilIntegrationTestCase):
     # Use @Retry as hedge against bucket listing eventual consistency.
     @Retry(AssertionError, tries=3, timeout_secs=1)
     def _Check2():
-      stdout = self.RunGsUtil(['ls', '-L', suri(bucket_uri)],
+      stdout = self.RunGcloud(['ls', '-L', suri(bucket_uri)],
                               return_stdout=True)
       self.assertIn('2048', stdout)
 
@@ -683,7 +683,7 @@ class TestLs(testcase.GsUtilIntegrationTestCase):
     # Use @Retry as hedge against bucket listing eventual consistency.
     @Retry(AssertionError, tries=3, timeout_secs=1)
     def _Check3():
-      stdout = self.RunGsUtil(['ls', '-al', suri(bucket_uri)],
+      stdout = self.RunGcloud(['ls', '-a', '-l', suri(bucket_uri)],
                               return_stdout=True)
       self.assertIn('2048', stdout)
 
@@ -692,7 +692,7 @@ class TestLs(testcase.GsUtilIntegrationTestCase):
     # Use @Retry as hedge against bucket listing eventual consistency.
     @Retry(AssertionError, tries=3, timeout_secs=1)
     def _Check4():
-      stdout = self.RunGsUtil(['ls', '-lh', suri(bucket_uri)],
+      stdout = self.RunGcloud(['ls', '-l', '-h', suri(bucket_uri)],
                               return_stdout=True)
       self.assertIn('2 KiB', stdout)
 
@@ -701,7 +701,7 @@ class TestLs(testcase.GsUtilIntegrationTestCase):
     # Use @Retry as hedge against bucket listing eventual consistency.
     @Retry(AssertionError, tries=3, timeout_secs=1)
     def _Check5():
-      stdout = self.RunGsUtil(['ls', '-alh', suri(bucket_uri)],
+      stdout = self.RunGcloud(['ls', '-a', '-l', '-h', suri(bucket_uri)],
                               return_stdout=True)
       self.assertIn('2 KiB', stdout)
 
@@ -726,7 +726,7 @@ class TestLs(testcase.GsUtilIntegrationTestCase):
                                 contents=b'foo',
                                 object_name=object_name)
     self.AssertNObjectsInBucket(bucket_uri, 1, versioned=True)
-    stdout = self.RunGsUtil(['ls', '-ael', suri(key_uri)], return_stdout=True)
+    stdout = self.RunGcloud(['ls', '-a', '-e', '-l', suri(key_uri)], return_stdout=True)
     self.assertIn(object_name, stdout)
     if self.default_provider == 'gs':
       self.assertIn(str(key_uri.generation), stdout)
@@ -745,7 +745,7 @@ class TestLs(testcase.GsUtilIntegrationTestCase):
   def test_list_acl(self):
     """Tests that long listing includes an ACL."""
     key_uri = self.CreateObject(contents=b'foo')
-    stdout = self.RunGsUtil(['ls', '-L', suri(key_uri)], return_stdout=True)
+    stdout = self.RunGcloud(['ls', '-L', suri(key_uri)], return_stdout=True)
     self.assertIn('ACL:', stdout)
     self.assertNotIn('ACCESS DENIED', stdout)
 
@@ -760,7 +760,7 @@ class TestLs(testcase.GsUtilIntegrationTestCase):
     # Use @Retry as hedge against bucket listing eventual consistency.
     @Retry(AssertionError, tries=3, timeout_secs=1)
     def _Check1():
-      stdout = self.RunGsUtil(['ls', '-L', suri(key_uri)], return_stdout=True)
+      stdout = self.RunGcloud(['ls', '-L', suri(key_uri)], return_stdout=True)
       self.assertRegex(stdout, r'Content-Encoding:\s+gzip')
       find_content_length_re = r'Content-Length:\s+(?P<num>\d)'
       self.assertRegex(stdout, find_content_length_re)
@@ -795,7 +795,7 @@ class TestLs(testcase.GsUtilIntegrationTestCase):
     bucket_uri = self.CreateBucket()
     self.CreateObject(bucket_uri=bucket_uri, object_name='/', contents=b'foo')
     self.AssertNObjectsInBucket(bucket_uri, 1)
-    stdout = self.RunGsUtil(['ls', '-R', suri(bucket_uri)], return_stdout=True)
+    stdout = self.RunGcloud(['ls', '-R', suri(bucket_uri)], return_stdout=True)
     # Note: The suri function normalizes the URI, so the double slash gets
     # removed.
     self.assertIn(suri(bucket_uri) + '/', stdout)
@@ -807,7 +807,7 @@ class TestLs(testcase.GsUtilIntegrationTestCase):
                       object_name='foo/',
                       contents=b'foo')
     self.AssertNObjectsInBucket(bucket_uri, 1)
-    stdout = self.RunGsUtil(['ls', '-R', suri(bucket_uri)], return_stdout=True)
+    stdout = self.RunGcloud(['ls', '-R', suri(bucket_uri)], return_stdout=True)
     # Note: The suri function normalizes the URI, so the double slash gets
     # removed.
     self.assertIn(suri(bucket_uri) + '/foo/', stdout)
@@ -819,7 +819,7 @@ class TestLs(testcase.GsUtilIntegrationTestCase):
     bucket_uri = self.CreateBucket()
     self.CreateObject(bucket_uri=bucket_uri, object_name='//', contents=b'foo')
     self.AssertNObjectsInBucket(bucket_uri, 1)
-    stdout = self.RunGsUtil(['ls', '-R', suri(bucket_uri)], return_stdout=True)
+    stdout = self.RunGcloud(['ls', '-R', suri(bucket_uri)], return_stdout=True)
     # Note: The suri function normalizes the URI, so the double slash gets
     # removed.
     self.assertIn(suri(bucket_uri) + '//', stdout)
@@ -836,7 +836,7 @@ class TestLs(testcase.GsUtilIntegrationTestCase):
                       object_name=object_matching_folder,
                       contents=b'foo')
     self.AssertNObjectsInBucket(bucket_uri, 2)
-    stderr = self.RunGsUtil(['ls', suri(bucket_uri, 'wildcard*')],
+    stderr = self.RunGcloud(['ls', suri(bucket_uri, 'wildcard*')],
                             return_stderr=True,
                             expected_status=1)
     self.assertIn(
@@ -847,7 +847,7 @@ class TestLs(testcase.GsUtilIntegrationTestCase):
     # Use @Retry as hedge against bucket listing eventual consistency.
     @Retry(AssertionError, tries=3, timeout_secs=1)
     def _Check():
-      stdout = self.RunGsUtil(['ls', '-l', suri(bucket_uri, '**')],
+      stdout = self.RunGcloud(['ls', '-l', suri(bucket_uri, '**')],
                               return_stdout=True)
       self.assertNumLines(stdout, 3)  # 2 object lines, one summary line.
 
@@ -864,7 +864,7 @@ class TestLs(testcase.GsUtilIntegrationTestCase):
     self.RunGsUtil(['acl', 'set', 'public-read', suri(object_uri)])
     # Drop credentials.
     with self.SetAnonymousBotoCreds():
-      stdout = self.RunGsUtil(['ls', '-L', suri(object_uri)],
+      stdout = self.RunGcloud(['ls', '-L', suri(object_uri)],
                               return_stdout=True)
       self.assertIn(suri(object_uri), stdout)
 
@@ -883,7 +883,7 @@ class TestLs(testcase.GsUtilIntegrationTestCase):
       # Use @Retry as hedge against bucket listing eventual consistency.
       @Retry(AssertionError, tries=3, timeout_secs=1)
       def _ListExpectDecrypted():
-        stdout = self.RunGsUtil(['ls', '-L', suri(object_uri)],
+        stdout = self.RunGcloud(['ls', '-L', suri(object_uri)],
                                 return_stdout=True)
         self.assertIn(TEST_ENCRYPTION_CONTENT1_MD5, stdout)
         self.assertIn(TEST_ENCRYPTION_CONTENT1_CRC32C, stdout)
@@ -895,7 +895,7 @@ class TestLs(testcase.GsUtilIntegrationTestCase):
     # Use @Retry as hedge against bucket listing eventual consistency.
     @Retry(AssertionError, tries=3, timeout_secs=1)
     def _ListExpectEncrypted():
-      stdout = self.RunGsUtil(['ls', '-L', suri(object_uri)],
+      stdout = self.RunGcloud(['ls', '-L', suri(object_uri)],
                               return_stdout=True)
       self.assertNotIn(TEST_ENCRYPTION_CONTENT1_MD5, stdout)
       self.assertNotIn(TEST_ENCRYPTION_CONTENT1_CRC32C, stdout)
@@ -946,7 +946,7 @@ class TestLs(testcase.GsUtilIntegrationTestCase):
       @Retry(AssertionError, tries=3, timeout_secs=1)
       def _ListExpectMixed():
         """Validates object listing."""
-        stdout = self.RunGsUtil(['ls', '-L', suri(bucket_uri)],
+        stdout = self.RunGcloud(['ls', '-L', suri(bucket_uri)],
                                 return_stdout=True)
         self.assertIn(TEST_ENCRYPTION_CONTENT1_MD5, stdout)
         self.assertIn(TEST_ENCRYPTION_CONTENT1_CRC32C, stdout)
@@ -967,7 +967,7 @@ class TestLs(testcase.GsUtilIntegrationTestCase):
       _ListExpectMixed()
 
   def test_non_ascii_project_fails(self):
-    stderr = self.RunGsUtil(['ls', '-p', 'ã', 'gs://fobarbaz'],
+    stderr = self.RunGcloud(['ls', '-p', 'ã', 'gs://fobarbaz'],
                             expected_status=1,
                             return_stderr=True)
     self.assertIn('Invalid non-ASCII', stderr)
@@ -991,12 +991,12 @@ class TestLs(testcase.GsUtilIntegrationTestCase):
     bucket_uri = self.CreateBucket()
 
     # Default KMS key is not set by default.
-    stdout = self.RunGsUtil(['ls', '-Lb', suri(bucket_uri)], return_stdout=True)
+    stdout = self.RunGcloud(['ls', '-L', '-b', suri(bucket_uri)], return_stdout=True)
     self.assertRegex(stdout, r'Default KMS key:\s+None')
 
     # Default KMS key's name should be listed after being set on the bucket.
     key_fqn = self.set_default_kms_key_on_bucket(bucket_uri)
-    stdout = self.RunGsUtil(['ls', '-Lb', suri(bucket_uri)], return_stdout=True)
+    stdout = self.RunGcloud(['ls', '-L', '-b', suri(bucket_uri)], return_stdout=True)
     self.assertRegex(stdout, r'Default KMS key:\s+%s' % key_fqn)
 
   @SkipForXML(KMS_XML_SKIP_MSG)
@@ -1010,7 +1010,7 @@ class TestLs(testcase.GsUtilIntegrationTestCase):
                                 contents=b'foo',
                                 kms_key_name=key_fqn)
 
-    stdout = self.RunGsUtil(['ls', '-L', suri(obj_uri)], return_stdout=True)
+    stdout = self.RunGcloud(['ls', '-L', suri(obj_uri)], return_stdout=True)
 
     self.assertRegex(stdout, r'KMS key:\s+%s' % key_fqn)
 
@@ -1019,11 +1019,11 @@ class TestLs(testcase.GsUtilIntegrationTestCase):
   def test_list_retention_policy(self):
     bucket_uri = self.CreateBucketWithRetentionPolicy(
         retention_period_in_seconds=1)
-    stdout = self.RunGsUtil(['ls', '-Lb', suri(bucket_uri)], return_stdout=True)
+    stdout = self.RunGcloud(['ls', '-L', '-b', suri(bucket_uri)], return_stdout=True)
     self.assertRegex(stdout, r'Retention Policy\:\t*Present')
     # Clearing Retention Policy on the bucket.
     self.RunGsUtil(['retention', 'clear', suri(bucket_uri)])
-    stdout = self.RunGsUtil(['ls', '-Lb', suri(bucket_uri)], return_stdout=True)
+    stdout = self.RunGcloud(['ls', '-L', '-b', suri(bucket_uri)], return_stdout=True)
     self.assertNotRegex(stdout, r'Retention Policy:')
 
   @SkipForXML(BUCKET_LOCK_SKIP_MSG)
@@ -1031,11 +1031,11 @@ class TestLs(testcase.GsUtilIntegrationTestCase):
   def test_list_default_event_based_hold(self):
     bucket_uri = self.CreateBucket()
     self.RunGsUtil(['retention', 'event-default', 'set', suri(bucket_uri)])
-    stdout = self.RunGsUtil(['ls', '-Lb', suri(bucket_uri)], return_stdout=True)
+    stdout = self.RunGcloud(['ls', '-L', '-b', suri(bucket_uri)], return_stdout=True)
     self.assertRegex(stdout, r'Default Event-Based Hold:\t* *True')
     # Clearing the default Event-Based Hold on the bucket.
     self.RunGsUtil(['retention', 'event-default', 'release', suri(bucket_uri)])
-    stdout = self.RunGsUtil(['ls', '-Lb', suri(bucket_uri)], return_stdout=True)
+    stdout = self.RunGcloud(['ls', '-L', '-b', suri(bucket_uri)], return_stdout=True)
     self.assertNotRegex(stdout, r'Default Event-Based Hold')
 
   @SkipForXML(BUCKET_LOCK_SKIP_MSG)
@@ -1043,11 +1043,11 @@ class TestLs(testcase.GsUtilIntegrationTestCase):
   def test_list_temporary_hold(self):
     object_uri = self.CreateObject(contents=b'content')
     self.RunGsUtil(['retention', 'temp', 'set', suri(object_uri)])
-    stdout = self.RunGsUtil(['ls', '-L', suri(object_uri)], return_stdout=True)
+    stdout = self.RunGcloud(['ls', '-L', suri(object_uri)], return_stdout=True)
     self.assertRegex(stdout, r'Temporary Hold')
     # Clearing the Temporary Hold on the object.
     self.RunGsUtil(['retention', 'temp', 'release', suri(object_uri)])
-    stdout = self.RunGsUtil(['ls', '-L', suri(object_uri)], return_stdout=True)
+    stdout = self.RunGcloud(['ls', '-L', suri(object_uri)], return_stdout=True)
     self.assertNotRegex(stdout, r'Temporary Hold')
 
   @SkipForXML(BUCKET_LOCK_SKIP_MSG)
@@ -1055,9 +1055,9 @@ class TestLs(testcase.GsUtilIntegrationTestCase):
   def test_list_event_based_hold(self):
     object_uri = self.CreateObject(contents=b'content')
     self.RunGsUtil(['retention', 'event', 'set', suri(object_uri)])
-    stdout = self.RunGsUtil(['ls', '-L', suri(object_uri)], return_stdout=True)
+    stdout = self.RunGcloud(['ls', '-L', suri(object_uri)], return_stdout=True)
     self.assertRegex(stdout, r'Event-Based Hold')
     # Clearing the Event-Based Hold on the object.
     self.RunGsUtil(['retention', 'event', 'release', suri(object_uri)])
-    stdout = self.RunGsUtil(['ls', '-L', suri(object_uri)], return_stdout=True)
+    stdout = self.RunGcloud(['ls', '-L', suri(object_uri)], return_stdout=True)
     self.assertNotRegex(stdout, r'Event-Based Hold')
