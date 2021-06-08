@@ -957,10 +957,7 @@ class GsUtilIntegrationTestCase(base.GsUtilTestCase):
     """
     # TODO Figure out a way to get gcloud storage to output useful stacktraces,
     # like --testexceptiontraces in RunGsUtil.
-    gcloud_exe_path = os.environ.get('GCLOUD_EXE_PATH', None)
-    if not gcloud_exe_path:
-      raise CommandException(
-          'Please run `export GCLOUD_EXE_PATH=<path to your gcloud binary>`')
+    gcloud_exe_path = os.environ.get('GCLOUD_EXE_PATH', 'gcloud')
     cmd = [
         gcloud_exe_path, 'alpha', 'storage',
         '--project=' + PopulateProjectId()
