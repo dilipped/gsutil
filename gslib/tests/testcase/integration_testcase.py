@@ -957,8 +957,12 @@ class GsUtilIntegrationTestCase(base.GsUtilTestCase):
     """
     # TODO Figure out a way to get gcloud storage to output useful stacktraces,
     # like --testexceptiontraces in RunGsUtil.
+    gcloud_exe_path = os.environ.get('GCLOUD_EXE_PATH', None)
+    if not gcloud_exe_path:
+      raise CommandException(
+          'Please run `export GCLOUD_EXE_PATH=<path to your gcloud binary>`')
     cmd = [
-        'gcloud', 'alpha', 'storage',
+        gcloud_exe_path, 'alpha', 'storage',
         '--project=' + PopulateProjectId()
     ] + cmd
     if stdin is not None:
@@ -967,10 +971,6 @@ class GsUtilIntegrationTestCase(base.GsUtilTestCase):
           stdin = stdin.encode(UTF8)
       else:
         stdin = stdin.encode(UTF8)
-    # checking to see if test was invoked from a par file (bundled archive)
-    # if not, add python executable path to ensure correct version of python
-    # is used for testing
-    cmd = [str(sys.executable)] + cmd if not InvokedFromParFile() else cmd
     env = os.environ.copy()
     if env_vars:
       env.update(env_vars)
@@ -990,8 +990,7 @@ class GsUtilIntegrationTestCase(base.GsUtilTestCase):
                          stderr=subprocess.PIPE,
                          stdin=subprocess.PIPE,
                          env=envstr,
-                         preexec_fn=preexec_fn,
-                         shell=True)
+                         preexec_fn=preexec_fn)
     comm_kwargs = {'input': stdin}
 
     def Kill():
